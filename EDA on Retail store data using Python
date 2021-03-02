@@ -1,0 +1,579 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# Welcome!
+# 
+# You are viewing the Jupyter Notebook that performs Exploratory Data Anlysis to understand the sales history data and improve sales strategies of A-to-Z-Market
+
+# Before we begin the analysis, it is necessary to import useful libraries that helps to analyse the data.
+
+# In[ ]:
+
+
+#import the necessary Libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import time
+import matplotlib.ticker as ticker
+
+
+# Let us import the dataset sales.csv that contains sales data of last 4-years from different regional stores in United States.
+
+# In[ ]:
+
+
+#Read the dataset
+df = pd.read_csv("F:/TBS/UE6- Python for Data science/Project/sales.csv")
+
+
+# Let us take a look at the dataset
+
+# In[ ]:
+
+
+df.head()
+
+
+# In[ ]:
+
+
+df.describe()
+
+
+# In[ ]:
+
+
+#convert Order dates to pandas datetime format
+df['Order Date'] = pd.to_datetime(df['Order Date'], format='%d/%m/%Y')
+
+#convert shipping dates to pandas datetime format
+df['Ship Date'] = pd.to_datetime(df['Ship Date'], format='%d/%m/%Y')
+
+
+# In[ ]:
+
+
+#sorting data by order date
+#df.sort_values(by=['Order Date'], inplace=True, ascending=True)
+
+
+# In[ ]:
+
+
+#setting the index to be the date will help us a lot later on
+#df.set_index("Order Date", inplace = True)
+
+
+# Before proceeding we check for null values and do the missing value treatment
+
+# In[ ]:
+
+
+print(df.isnull().sum())
+
+
+# To handle the null values in postal code. We will not drop them, instead we will add the postal code of respective city.
+# We need to find the cities for which the postal code is not mentioned and Fill the postal code of the respective city into the postal code column
+
+# In[ ]:
+
+
+df[df['Postal Code'].isnull()]
+
+
+# We can see that the postal code is not mentioned only for Burlington city in Vermont state. So, we need to fill the postal code of that city.
+
+# In[ ]:
+
+
+# Postal code for Burlington city
+df['Postal Code'] = df['Postal Code'].fillna(5401)
+print(df.isnull().sum())
+
+
+# It is easier to find the year and quarter of order by looking at order date colum. We can therefore delete the columnOrder quarter as it is redundant information.
+
+# In[ ]:
+
+
+del df['Order Quarter']
+
+
+# In[ ]:
+
+
+df.head()
+
+
+# Once we complete the data cleaning, let's analyze and plot the metrics like sales, profit, revenue to find out if the business is profitable or not.  
+
+# A Choropleth Map is a map composed of colored polygons. Let's plot a map for sales in different states.
+# Since the state abbreviation or the latitude and longitude are not given, it is difficult to plot a map. So, the state abbreviations are added to the respective states and a choropleth map is plotted.
+
+# In[ ]:
+
+
+state = ['Alabama', 'Arizona' ,'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida', 
+         'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
+         'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana','Nebraska', 'Nevada', 'New Hampshire',
+         'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania',
+         'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington',
+         'West Virginia', 'Wisconsin','Wyoming']
+state_code = ['AL','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA',
+              'MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN',
+              'TX','UT','VT','VA','WA','WV','WI','WY']
+
+
+# In[ ]:
+
+
+state_df = pd.DataFrame(state, state_code) # Create a dataframe
+state_df.reset_index(level=0, inplace=True)
+state_df.columns = ['State Code','State']
+sales = df.groupby(["State"]).sum().sort_values("Sales", ascending=False)
+sales.reset_index(level=0, inplace=True)
+sales.drop('Postal Code',1, inplace = True)
+sales= sales.sort_values('State', ascending=True)
+sales.reset_index(inplace = True)
+sales.drop('index',1,inplace = True)
+sales.insert(1, 'State Code', state_df['State Code'])
+
+
+# In[ ]:
+
+
+#run pip install plotly on cmd before executing plotly package
+
+import plotly.graph_objects as go
+from plotly.offline import init_notebook_mode, plot_mpl
+
+sales['text'] = sales['State']
+fig = go.Figure(data=go.Choropleth(
+    locations=sales['State Code'], # Spatial coordinates
+    text=sales['text'],
+    z = sales['Sales'].astype(float), # Data to be color-coded
+    locationmode = 'USA-states', # set of locations match entries in `locations`
+    colorscale = 'Reds',
+    colorbar_title = "Sales",
+    
+))
+
+fig.update_layout(
+    title_text = 'Sales',
+    geo_scope='usa', # limite map scope to USA
+)
+
+fig.show();
+
+
+#  Let's find out Top 10 States which generated the highest sales
+
+# In[ ]:
+
+
+Top_states = df.groupby(["State"]).sum().sort_values("Sales", ascending=False)
+# Since we have used groupby, we will have to reset the index to add the states into dataframe
+Top_states.reset_index(inplace=True)
+Top_states.head(10)
+
+
+# Let's plot the graph for Top 10 states with most sales
+
+# In[ ]:
+
+
+plt.figure(figsize = (15,5)) # width and height of figure is defined in inches
+plt.title("Top 10 States with highest sales ", fontsize=18) 
+plt.bar(Top_states["State"], Top_states["Sales"],color= 'Red',edgecolor='Black', linewidth = 1)
+plt.xlabel("States",fontsize=15) # x axis shows the States
+plt.ylabel("Revenue",fontsize=15) # y axis shows the Revenue
+plt.xticks(fontsize=12, rotation=90)
+plt.yticks(fontsize=12)
+
+
+# California, Newyork and Texas are the top 3 states with highest sales
+
+# Now let's find out which Segment has the highest sales
+
+# In[ ]:
+
+
+Top_segment = df.groupby(["Segment"]).sum().sort_values("Sales", ascending=False)
+Top_segment = Top_segment[["Sales"]].round(20)
+Top_segment.reset_index(inplace=True)
+pd.options.display.float_format = '{:.2f}'.format
+print(Top_segment)
+
+
+# The consumer segment has the highest sales and home office has the lowest sales.
+
+# Let's look at the sales generated by each category
+
+# In[ ]:
+
+
+Top_category = df.groupby(["Category"]).sum().sort_values("Sales", ascending=False)  # Sort the Categories as per the sales
+Top_category = Top_category[["Sales"]] # keep only the sales column in the dataframe
+total_revenue_category = Top_category["Sales"].sum() # To find the total revenue generated as per category
+total_revenue_category = str(int(total_revenue_category)) # Convert the total_revenue_category from float to int and then to string
+total_revenue_category = '$' + total_revenue_category # Adding '$' sign before the Value
+Top_category.reset_index(inplace=True)
+print(Top_category)
+
+
+# Now we can plot the sales for different categories
+
+# In[ ]:
+
+
+plt.rcParams["figure.figsize"] = (13,5) # width and height of figure is defined in inches
+plt.rcParams['font.size'] = 12.0 # Font size is defined
+plt.rcParams['font.weight'] = 6 # Font weight is defined
+# we don't want to look at the percentage distribution in the pie chart. Instead, we want to look at the exact revenue generated by the categories.
+def autopct_format(values): 
+    def my_format(pct): 
+        total = sum(values) 
+        val = int(round(pct*total/100.0))
+        return ' ${v:d}'.format(v=val)
+    return my_format
+colors = ['Red','Yellow','Orange'] # Colors are defined for the pie chart
+explode = (0.05,0.05,0.05)
+fig1, ax1 = plt.subplots()
+ax1.pie(Top_category['Sales'], colors = colors, labels=Top_category['Category'], autopct= autopct_format(Top_category['Sales']), startangle=90,explode=explode)
+centre_circle = plt.Circle((0,0),0.82,fc='white') # drawing a circle on the pie chart to make it look better 
+fig = plt.gcf()
+fig.gca().add_artist(centre_circle) # Add the circle on the pie chart
+# Equal aspect ratio ensures that pie is drawn as a circle
+ax1.axis('equal') 
+# we can look the total revenue generated by all the categories at the center
+label = ax1.annotate('Total Revenue \n'+str(total_revenue_category),color = 'red', xy=(0, 0), fontsize=12, ha="center")
+plt.tight_layout()
+plt.show()
+
+
+# The sales for Technology is $836154.0330,Furniture is $741999.7953 and Office Supplies  $719047.0320
+
+# Let's look at the sales generated by each Sub-Category and plot the same
+
+# In[ ]:
+
+
+# Sort both category and  sub category as per the sales
+Top_subcat = df.groupby(['Category','Sub-Category']).sum().sort_values("Sales", ascending=False).head(10)
+Top_subcat = Top_subcat[["Sales"]].astype(int) # Cast Sales column to integer data type
+Top_subcat = Top_subcat.sort_values("Category") # Sort the values as per Category
+Top_subcat.reset_index(inplace=True) # Since we have used groupby, we will have to reset the index to add both columns into data frame
+Top_subcat_1 = Top_subcat.groupby(['Category']).sum() # Calculated the total Sales of all the categories
+Top_subcat_1.reset_index(inplace=True) # Reset the index
+
+
+# In[ ]:
+
+
+plt.rcParams["figure.figsize"] = (15,10) # width and height of figure is defined in inches
+fig, ax = plt.subplots()
+ax.axis('equal') # Equal aspect ratio ensures that pie is drawn as a circle
+width = 0.1
+outer_colors = ['#FE840E','#009B77','#BC243C'] # Outer colors of the pie chart
+inner_colors = ['Orangered','tomato','coral',"darkturquoise","mediumturquoise","paleturquoise","lightpink","pink","hotpink","deeppink"] # inner colors of the pie chart
+pie = ax.pie(Top_subcat_1['Sales'], radius=1, labels=Top_subcat_1['Category'],colors=outer_colors,wedgeprops=dict(edgecolor='w'))
+pie2 = ax.pie(Top_subcat['Sales'], radius=1-width, labels=Top_subcat['Sub-Category'],autopct= autopct_format(Top_subcat['Sales']),labeldistance=0.7,colors=inner_colors,wedgeprops=dict(edgecolor='w'), pctdistance=0.53,rotatelabels =True)
+# Rotate fractions
+# [0] = wedges, [1] = labels, [2] = fractions
+fraction_text_list = pie2[2]
+for text in fraction_text_list: 
+    text.set_rotation(315) # rotate the autopct values
+centre_circle = plt.Circle((0,0),0.6,fc='white') # Draw a circle on the pie chart
+fig = plt.gcf()
+fig.gca().add_artist(centre_circle)
+# Equal aspect ratio ensures that pie is drawn as a circle
+ax1.axis('equal')  
+plt.tight_layout()
+plt.show()
+
+
+# We can see that Sub-Category - Phones generated the highest revenue of about $329342, followed by chairs with $328097 and storage corresponding to $223368
+
+# Let's plot the shipping mode having the highest sales
+
+# In[ ]:
+
+
+Top_shipping = df.groupby(["Ship Mode"]).sum().sort_values("Sales", ascending=False) # Sort the Shipping modes as per the sales
+Top_shipping = Top_shipping[["Sales"]] # keep only the sales column in the dataframe
+Top_shipping.reset_index(inplace=True) # Since we have used groupby, we will have to reset the index to add the Ship Mode column into the data frame
+total_revenue_ship = Top_segment["Sales"].sum() # To find the total revenue generated as per shipping mode
+total_revenue_ship = str(int(total_revenue_ship)) # Convert the total_revenue_ship from float to int and then to string
+total_revenue_ship = '$' + total_revenue_ship # Adding '$' sign before the Value
+plt.rcParams["figure.figsize"] = (13,5) # width and height of figure is defined in inches
+plt.rcParams['font.size'] = 12.0 # Font size is defined
+plt.rcParams['font.weight'] = 6 # Font weight is defined
+colors = ['pink','purple','lightblue',"violet"] # define colors for the pie chart
+fig1, ax1 = plt.subplots()
+ax1.pie(Top_shipping['Sales'], colors = colors, labels=Top_shipping['Ship Mode'], autopct= autopct_format(Top_shipping['Sales']), startangle=90)
+centre_circle = plt.Circle((0,0),0.82,fc='white') # Draw a circle on the pie chart
+fig = plt.gcf()
+fig.gca().add_artist(centre_circle)
+# Equal aspect ratio ensures that pie is drawn as a circle
+ax1.axis('equal') 
+label = ax1.annotate('Total Revenue \n'+str(total_revenue_ship),color = 'red', xy=(0, 0), fontsize=12, ha="center")
+plt.tight_layout()
+plt.show()
+
+
+# We notice that standard class has the highest sales value compared to other classes combined.
+
+# For a Pandas dataframe, we can conveniently use the call .corr which by default provides the Pearson Correlation values of the columns pairwise in that dataframe. Let's look at how the features are related to one another.
+
+# In[ ]:
+
+
+df1 = df[['Category','Sales']]
+df_cat = pd.get_dummies(df1)
+cor_mat = df_cat.corr()
+mask = np.array(cor_mat)
+mask[np.tril_indices_from(mask)]=False
+fig = plt.gcf()
+fig.set_size_inches(20,5)
+sns.heatmap(data = cor_mat, mask = mask, square = True, annot = True, cbar = True);
+
+
+# We notice that there is a positive correlation between sales for technology and furniture. This could indicate that they are usually the most sold products contributing to most sales. But let's find out more
+
+# Which of the products are top selling and least sold products?
+
+# In[ ]:
+
+
+Top_products = df.groupby(["Product Name","Category"]).sum().sort_values("Sales",ascending=False) # Sort the product names as per the sales
+Top_products = Top_products[["Sales"]].round(2) # Round off the Sales Value up to 2 decimal places
+Top_products.reset_index(inplace=True) # Since we have used groupby, we will have to reset the index to add the product names into the dataframe
+total_revenue_products = Top_products["Sales"].sum() # To find the total revenue generated by all the top products
+total_revenue_products = str(int(total_revenue_products)) # Convert the total_revenue_products from float to int and then to string
+total_revenue_products = '$' + total_revenue_products # Adding '$' sign before the Value
+Top_products.head(5)
+
+
+# We observe that the top selling products are from technology and office supplies
+
+# In[ ]:
+
+
+Bottom_products = df.groupby(["Product Name","Category"]).sum().sort_values("Sales",ascending=True) # Sort the product names as per the sales
+Bottom_products = Bottom_products[["Sales"]].round(2) # Round off the Sales Value up to 2 decimal places
+Bottom_products.reset_index(inplace=True) # Since we have used groupby, we will have to reset the index to add the product names into the dataframe
+total_sales_products = Bottom_products["Sales"].sum() # To find the total revenue generated by all the top products
+total_sales_products = str(int(total_sales_products)) # Convert the total_revenue_products from float to int and then to string
+total_sales_products = '$' + total_sales_products # Adding '$' sign before the Value
+Bottom_products.head(5)
+
+
+# We can observe that the least sold products are from office supplies
+
+# Now lets look at both sales and profit for sub category
+
+# In[ ]:
+
+
+df.groupby(["Category",'Sub-Category'])['Profit','Sales'].agg(['sum']).plot.bar()
+plt.title('Total Profit and Sales per Sub-Category')
+# plt.legend('Profit')
+# plt.legend('Sales')
+plt.show()
+
+
+# Highest profit is earned in Copiers while Selling price for Chairs and Phones is extremely high compared to other products.
+# There is a negative profit for Tables and Bookcases. Hence furniture category is in loss.
+
+# Let's now look at the region wise sales for different sub categories.
+
+# In[ ]:
+
+
+plt.figure(figsize=(15,8))
+sns.countplot(x="Sub-Category", hue="Region", data=df)
+plt.xticks(fontsize=12, rotation=45)
+plt.yticks(fontsize=12)
+plt.show()
+
+
+# We can infer that maximum of our sales is from Western and eastern parts of US.
+# To understand the data better. Lets create some new columns like Cost,Profit%
+
+# In[ ]:
+
+
+df['Cost']=df['Sales']-df['Profit']
+df['Cost'].head()
+
+
+# In[ ]:
+
+
+df['Profit %']=(df['Profit']/df['Cost'])*100
+#Products with high Profit Percentage 
+df.sort_values(['Profit %','Product Name'],ascending=False).groupby('Profit %').head(5)
+
+
+# Retailers selling Phone,Binders,Papers have got 100% Profit in their Business.
+
+# In[ ]:
+
+
+# Creating a column for Revenue
+df['Revenue'] = df.Sales*df.Quantity
+
+
+# In[ ]:
+
+
+# Average profit by category
+avg_cat_profit=df.groupby("Category").Profit.mean().reset_index()
+print(avg_cat_profit)
+
+
+# Technology not only corresponds to highest sales, also highest profit as well. Furniture category makes the least profit.
+
+# Let's find out average profit for segment, subcategory and regions.
+
+# In[ ]:
+
+
+# Average profit by segment
+avg_seg_profit = df.groupby("Segment").Profit.mean().reset_index().sort_values("Profit",ascending=False)
+print(avg_seg_profit)
+# average profit by subcategory
+avg_subcat_profit = df.groupby(["Sub-Category","Category"]).Profit.mean().reset_index().sort_values("Profit",ascending=False)
+print(avg_subcat_profit)
+# Average profit per Region per category
+prof_regcat = df.groupby(['Category', 'Region']).Profit.mean().reset_index().sort_values("Profit",ascending=False)
+print(prof_regcat)
+
+
+# We observe that technology occupies the top 3 of profitable categories sold and also most profitable in all the regions of US
+
+# Let's look at the revenue generated per year and plot the same
+
+# In[ ]:
+
+
+yearly_revenue = df.groupby('Order Year').Revenue.sum().reset_index()
+print(yearly_revenue)
+
+
+# The revenue is increasing with years from $2468283.73 to $3584819.60 in 4 years
+
+# In[ ]:
+
+
+#Sales per year
+df.groupby('Order Year')['Sales','Profit %'].agg(['sum']).plot.bar()
+plt.title('Year wise Total Sales & % of profit gained')
+
+
+# Let's plot a line chart to understand evolution of sales per year
+
+# In[ ]:
+
+
+plt.figure(figsize = (10,5))
+chart = sns.lineplot(data=yearly_revenue, x='Order Year', y='Revenue')
+chart.set_title('Revenue evolution per year')
+chart.set_xlabel("Year")
+chart.set_ylabel('Revenue')
+plt.show
+
+
+# We notice a slight dip in the sales for 2017 which increases later and follows a positive trend.
+
+# Having done product and order level analysis, let us now focus on customer level analysis to create a customer cluster. 
+# Creating this cluster will give us valuable information about customer purchase. 
+# RFM model creates the required features from transactional purchasing data.
+# We can categorize a customer based on 3 factors:
+# 1. Recency: When was the last time they purchased?
+# 2. Frequency: How often and for how long have they purchased?
+# 3. Monetary Value/Sales: How much have they purchased?
+
+# In[ ]:
+
+
+#Step 1: Create RFM Features for each customers
+df_RFM = df.groupby('Customer ID').agg({"Order Date": lambda y: (df["Order Date"].max().date() - y.max().date()).days,
+                                        "Order ID": lambda y: len(y.unique()),  
+                                        "Sales": lambda y: round(y.sum(),2)})
+df_RFM.columns = ['Recency', 'Frequency', 'Monetary']
+df_RFM = df_RFM.sort_values('Monetary', ascending=False)
+df_RFM.head()
+
+
+# In[ ]:
+
+
+#Step 2: To automate the segmentation we will use 80% quantile for Recency and Monetary
+# We will use the 80% quantile for each feature
+quantiles = df_RFM.quantile(q=[0.8])
+print(quantiles)
+df_RFM['R']=np.where(df_RFM['Recency']<=int(quantiles.Recency.values), 2, 1)
+df_RFM['F']=np.where(df_RFM['Frequency']>=int(quantiles.Frequency.values), 2, 1)
+df_RFM['M']=np.where(df_RFM['Monetary']>=int(quantiles.Monetary.values), 2, 1)
+df_RFM.head()
+
+
+# In[ ]:
+
+
+#Step 3: Calculate RFM score and sort customers
+# To do the 2 x 2 matrix we will only use Recency & Monetary
+df_RFM['RMScore'] = df_RFM.M.map(str)+df_RFM.R.map(str)
+df_RFM = df_RFM.reset_index()
+df_RFM_SUM = df_RFM.groupby('RMScore').agg({'Customer ID': lambda y: len(y.unique()),
+                                        'Frequency': lambda y: round(y.mean(),0),
+                                        'Recency': lambda y: round(y.mean(),0),
+                                        'R': lambda y: round(y.mean(),0),
+                                        'M': lambda y: round(y.mean(),0),
+                                        'Monetary': lambda y: round(y.mean(),0)})
+df_RFM_SUM = df_RFM_SUM.sort_values('RMScore', ascending=False)
+df_RFM_SUM.head()
+
+
+# In[ ]:
+
+
+# 1) Average Monetary Matrix
+df_RFM_M = df_RFM_SUM.pivot(index='M', columns='R', values='Monetary')
+df_RFM_M= df_RFM_M.reset_index().sort_values(['M'], ascending = False).set_index(['M'])
+print(df_RFM_M)
+# 2) Number of Customer Matrix
+df_RFM_C = df_RFM_SUM.pivot(index='M', columns='R', values='Customer ID')
+df_RFM_C= df_RFM_C.reset_index().sort_values(['M'], ascending = False).set_index(['M'])
+print(df_RFM_C)
+# 3) Recency Matrix
+df_RFM_R = df_RFM_SUM.pivot(index='M', columns='R', values='Recency')
+df_RFM_R= df_RFM_R.reset_index().sort_values(['M'], ascending = False).set_index(['M'])
+print(df_RFM_R)
+
+
+# We can categorize 2X2 customer segment value matrix elements as following:
+# (2,1) -> Disengaged customers ( Customers with high monetary values but less recency)
+# (2,2) -> Star customers ( Customers with high monetary values and more recency who are most engaged customers)
+# (1,1) -> Light customers ( Customers with low monetary values but high recency)
+# (1,2) -> New customers ( Customers with low monetary values and less recency as they are new customers)
+
+# Let us understand the values of each matrix
+# 
+# (2,1) -> Disengaged customers -> (8629.00, 17 , 412) - It means that the sum of monetary value is $8629, there are 17 customers in this category and their purchasing frequency is 412 days which means less recency
+# 
+# (2,2) -> Star customers -> (6739.00, 143 , 66)  - It means that the sum of monetary value is $6739, there are 143 customers in this category and their purchasing frequency is 66 days which means more recency
+# 
+# (1,1) -> Light customers -> (1404.00 , 142 , 463)  - It means that the sum of monetary value is $1404, there are 142 customers in this category and their purchasing frequency is 463 days which means less recency
+#   
+# (1,2) -> New customers -> (2011.00, 491 , 70) - It means that the sum of monetary value is $2011, there are 491 customers in this category and their purchasing frequency is 70 days which means more recency
+
+# Let's look at the recommendations to make the business profitable:
+
+# From the matrix results we can infer that There are  8629 customers in  Disengaged category compared to 6739.00 in Star cetegory. Reactivate few of them with a phone call or meeting to hopefully move them back to the Star bucket which in return will make the busines profitable. In order to retain the star customers and make them more engaged, launching loyalty campaigns or membership cards will certainly help the business.
+
+# The average last order from the Light bucket is very old (more than 1 year (463 days) vs. 66 days for star customers).
+# Launching a simple reactivation campaign with a coupon might be an initiative that could lead to some new orders and help some of these customers move to the New bucket
